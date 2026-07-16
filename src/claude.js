@@ -1,7 +1,25 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { identity, CANNED, buildKnowledgeText } from "./business-info.js";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// ניקוי המפתח מטעויות הדבקה נפוצות: רווחים, גרשיים, וקידומת "ANTHROPIC_API_KEY=".
+// (לא מסיר תווים לא-תקינים כמו "•" — מפתח כזה פשוט לא תקין וצריך להזין מחדש נקי.)
+const RAW_KEY = process.env.ANTHROPIC_API_KEY || "";
+const API_KEY = RAW_KEY.trim()
+  .replace(/^ANTHROPIC_API_KEY\s*=\s*/i, "")
+  .replace(/^["']|["']$/g, "")
+  .trim();
+
+const anthropic = new Anthropic({ apiKey: API_KEY });
+
+// מידע לאבחון בלבד (לא חושף את המפתח עצמו).
+export function keyDebug() {
+  return {
+    rawLen: RAW_KEY.length,
+    cleanLen: API_KEY.length,
+    start: API_KEY.slice(0, 10),
+    asciiOk: /^[\x00-\x7F]*$/.test(API_KEY),
+  };
+}
 
 // המודל: Sonnet 5 — איזון טוב של איכות ומחיר, ומצוין בהקפדה על כללים.
 // אפשר להחליף ל-"claude-opus-4-8" (חכם/יקר יותר) או "claude-haiku-4-5-20251001" (זול/מהיר).

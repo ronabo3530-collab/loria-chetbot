@@ -1,5 +1,5 @@
 import express from "express";
-import { getReply } from "./claude.js";
+import { getReply, keyDebug } from "./claude.js";
 import { sendWhatsAppMessage, parseIncomingMessage } from "./whatsapp.js";
 
 const app = express();
@@ -111,8 +111,7 @@ app.post("/api/test-chat", async (req, res) => {
         name: err?.name,
         status: err?.status,
         message: String(err?.message || err).slice(0, 300),
-        hasKey: !!process.env.ANTHROPIC_API_KEY,
-        keyLen: (process.env.ANTHROPIC_API_KEY || "").length,
+        key: keyDebug(),
       },
     });
   }
