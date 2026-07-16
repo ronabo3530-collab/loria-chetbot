@@ -1,5 +1,5 @@
 import express from "express";
-import { getReply, keyDebug } from "./claude.js";
+import { getReply } from "./claude.js";
 import { sendWhatsAppMessage, parseIncomingMessage } from "./whatsapp.js";
 
 const app = express();
@@ -104,16 +104,7 @@ app.post("/api/test-chat", async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.error("שגיאה בבדיקת צ'אט:", err);
-    // חשיפת שגיאה זמנית לצורך אבחון — יוסר אחרי שנתקן.
-    res.status(500).json({
-      error: "server error",
-      debug: {
-        name: err?.name,
-        status: err?.status,
-        message: String(err?.message || err).slice(0, 300),
-        key: keyDebug(),
-      },
-    });
+    res.status(500).json({ error: "server error" });
   }
 });
 
