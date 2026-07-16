@@ -1,0 +1,19 @@
+{
+  "name": "magnetic-lashes-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "צ'אטבוט וואטסאפ מבוסס Claude לעסק ריסים מגנטיים",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --env-file=.env src/server.js",
+    "test:claude": "node --env-file=.env src/test-claude.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0",
+    "express": "^4.21.2"
+  }
+}
