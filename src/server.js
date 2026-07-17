@@ -1,6 +1,7 @@
 import express from "express";
 import { getReply } from "./claude.js";
 import { sendWhatsAppMessage, parseIncomingMessage } from "./whatsapp.js";
+import { identity } from "./business-info.js";
 
 const app = express();
 app.use(express.json());
@@ -78,7 +79,7 @@ app.post("/webhook", async (req, res) => {
     try {
       await sendWhatsAppMessage(
         from,
-        "אופס, קרתה תקלה קטנה 🙏 אפשר לנסות שוב עוד רגע? אם זה חוזר, אפשר לפנות אלינו במייל shopbyloria@gmail.com"
+        `אופס, קרתה תקלה קטנה 🙏 אפשר לנסות שוב עוד רגע? אם זה חוזר, אפשר לפנות אלינו בוואטסאפ: ${identity.supportWhatsApp}`
       );
     } catch {
       // אם גם השליחה נכשלה — כבר רשמנו את השגיאה למעלה.
