@@ -2,6 +2,7 @@ import express from "express";
 import { getReply } from "./claude.js";
 import { sendWhatsAppMessage, parseIncomingMessage } from "./whatsapp.js";
 import { identity } from "./business-info.js";
+import { logToSheet } from "./sheets.js";
 
 const app = express();
 app.use(express.json());
@@ -74,6 +75,9 @@ app.post("/webhook", async (req, res) => {
 
     await sendWhatsAppMessage(from, reply);
     console.log(`📤 תשובה נשלחה ל-${from}`);
+
+    // תיעוד לגוגל שיטס — לא חוסם ולא מפיל את הבוט אם נכשל.
+    logToSheet({ name, phone: from, userMessage: text, botReply: reply });
   } catch (err) {
     console.error("שגיאה בטיפול בהודעה:", err);
     try {

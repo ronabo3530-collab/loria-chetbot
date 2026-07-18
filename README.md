@@ -72,6 +72,42 @@ src/
 
 ---
 
+## 📊 תיעוד שיחות בגוגל שיטס (אופציונלי)
+
+כדי לראות היסטוריית שיחות של לקוחות (הודעה + תשובת הבוט) בטבלה נוחה, בלי צורך ב-Google Cloud Console או OAuth — רק כמה דקות הקמה בתוך גוגל שיטס עצמו:
+
+1. פתח/י [Google Sheets](https://sheets.google.com) וצור/צרי גיליון חדש (למשל "לוריה — היסטוריית שיחות").
+2. בתפריט: **Extensions → Apps Script**.
+3. מחק/י את הקוד שכבר שם, והדבק/י את זה במקומו:
+   ```javascript
+   function doPost(e) {
+     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+     if (sheet.getLastRow() === 0) {
+       sheet.appendRow(["תאריך ושעה", "שם הלקוחה", "טלפון", "הודעת הלקוחה", "תשובת הבוט"]);
+     }
+     var data = JSON.parse(e.postData.contents);
+     var tz = Session.getScriptTimeZone();
+     var timestamp = Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm:ss");
+     sheet.appendRow([timestamp, data.name || "", data.phone || "", data.userMessage || "", data.botReply || ""]);
+     return ContentService.createTextOutput(JSON.stringify({status: "ok"})).setMimeType(ContentService.MimeType.JSON);
+   }
+   ```
+4. שמור/י (סמל הדיסקט או Cmd+S). תן/י שם לפרויקט אם מתבקש/ת (למשל "Loria Sheets Logger").
+5. למעלה מימין: **Deploy → New deployment**.
+6. ליד "Select type" לחץ/י על סמל הגלגל ⚙️ ובחר/י **Web app**.
+7. הגדרות:
+   - **Execute as:** Me
+   - **Who has access:** Anyone
+8. **Deploy**. בפעם הראשונה תתבקש/י לאשר הרשאות לסקריפט שלך (זה תקין — זה הפרויקט שלך, לא אפליקציה חיצונית): **Authorize access** → בחר/י את חשבון Google שלך → אם מופיעה אזהרה "Google hasn't verified this app" (תקין לגמרי לסקריפט אישי) → **Advanced** → **Go to [שם הפרויקט] (unsafe)** → **Allow**.
+9. תקבל/י **Web app URL** — כתובת שנראית כך: `https://script.google.com/macros/s/AKfycb.../exec`. **העתיקי אותה**.
+10. ב-**Railway → Variables**, הוסיפי משתנה חדש:
+    - `GOOGLE_SHEETS_WEBHOOK_URL` = הכתובת שהעתקת.
+11. שמרי, וודאי שהשינוי נפרס (Apply changes → Deploy, בדיוק כמו שאר המשתנים).
+
+מרגע זה כל שיחה שהבוט עונה עליה תתועד אוטומטית בגיליון: תאריך, שם הלקוחה, מספר טלפון, מה היא שאלה, ומה ליאור ענתה. אם המשתנה לא מוגדר — הבוט פשוט לא מתעד, בלי שום שגיאה.
+
+---
+
 ## 🧪 בדיקה מקומית (לפני פריסה — אופציונלי)
 
 אם רוצים לבדוק שהחיבור ל-Claude עובד עוד לפני העלייה לאוויר:
@@ -106,3 +142,4 @@ src/
 | שגיאת Claude | ודא/י שמפתח ה-API תקין ושיש קרדיט בחשבון Anthropic. |
 | `npm install` נכשל על גרסת חבילה | הרץ/הריצי `npm install @anthropic-ai/sdk@latest express` — זה יתקין את הגרסה הזמינה העדכנית. |
 | "מספר לא מאושר" | בפיתוח אפשר לשלוח רק למספרים שהוספת ב-API Setup. לקהל הרחב צריך לאמת את מספר העסק ולעבור ל-Production. |
+| הבוט עונה אבל השיחה לא מופיעה בגיליון | ודא/י ש-`GOOGLE_SHEETS_WEBHOOK_URL` מוגדר נכון ב-Railway (בלי רווחים), ושה-Web App נפרס עם "Who has access: Anyone". בדוק/בדקי בלוגים של Railway אם יש שורת "שגיאה בתיעוד לגוגל שיטס". |
