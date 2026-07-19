@@ -152,8 +152,21 @@ export function startEmailPolling() {
 
   console.log(`📧 מענה אוטומטי למייל פעיל עבור ${EMAIL_USER} (בדיקה כל ${POLL_INTERVAL_MS / 60000} דקות)`);
 
+  // מונע הרצות חופפות: אם עדיין רץ עיבוד קודם (למשל תיבה עם המון מיילים
+  // שלוקח יותר מ-2 דקות), לא מתחילים ריצה נוספת — אחרת שני ריצות עלולות
+  // לתפוס את אותו מייל לפני שהוא מסומן כנקרא ולשלוח תשובה כפולה.
+  let isPolling = false;
   const poll = () => {
-    processInbox().catch((err) => console.error("שגיאה כללית בבדיקת תיבת המייל:", err));
+    if (isPolling) {
+      console.log("⏳ בדיקת המייל הקודמת עדיין רצה — מדלגים על הבדיקה הזו.");
+      return;
+    }
+    isPolling = true;
+    processInbox()
+      .catch((err) => console.error("שגיאה כללית בבדיקת תיבת המייל:", err))
+      .finally(() => {
+        isPolling = false;
+      });
   };
 
   poll(); // בדיקה ראשונה מיד עם עליית השרת
