@@ -15,11 +15,17 @@ const POLL_INTERVAL_MS = 2 * 60 * 1000; // בדיקת תיבה כל 2 דקות
 const SKIPPED_LABEL = "דולג ע\"י הבוט";
 const ANSWERED_LABEL = "נענה ע\"י הבוט";
 
+// שימוש ב-STARTTLS על פורט 587 במפורש (במקום TLS ישיר על 465) — חלק מספקי הענן
+// חוסמים/מתקשים עם פורט 465, ו-587 נתמך הרבה יותר טוב ברשתות מוגבלות.
 const transporter =
   EMAIL_USER && EMAIL_APP_PASSWORD
     ? nodemailer.createTransport({
-        service: "gmail",
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
+        requireTLS: true,
         auth: { user: EMAIL_USER, pass: EMAIL_APP_PASSWORD },
+        connectionTimeout: 20000,
       })
     : null;
 
