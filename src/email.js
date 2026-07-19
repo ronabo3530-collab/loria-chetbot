@@ -54,6 +54,11 @@ async function ensureLabel(client, label) {
   }
 }
 
+// UID של המייל הראשון שייחשב "חדש". כל מה שבתיבה מלפני נקודה זו — כולל כל
+// העומס הישן (הזמנות מדומות וכו') — לא ייגע בו הבוט בכלל, אפילו לא לסימון
+// כנקרא. נקבע פעם אחת בעליית השרת; מתאפס אם השרת עולה מחדש.
+let sinceUid = null;
+
 async function processInbox() {
   const client = new ImapFlow({
     host: "imap.gmail.com",
@@ -67,15 +72,18 @@ async function processInbox() {
   const lock = await client.getMailboxLock("INBOX");
 
   try {
-    const uids = await client.search({ seen: false }, { uid: true });
-    if (!uids || !uids.length) return;
+    if (sinceUid === null) {
+      // ריצה ראשונה: קובעים נקודת התחלה ולא נוגעים בכלום שכבר בתיבה.
+      sinceUid = client.mailbox.uidNext;
+      console.log(`📌 נקודת התחלה נקבעה — רק מיילים שיגיעו מעכשיו יטופלו (UID ${sinceUid}+), הכל לפני זה לא ייגע בו הבוט`);
+      return;
+    }
 
-    // מעבדים מהחדש לישן: אם יש עומס גדול של מיילים ישנים בתיבה (למשל גל
-    // הודעות אוטומטיות), לא רוצים שמייל אמיתי וטרי של לקוחה יחכה בתור
-    // מאחורי אלפי הודעות ישנות. UID גבוה יותר = מייל חדש יותר.
-    const uidsNewestFirst = [...uids].sort((a, b) => b - a);
+    const allUnseen = await client.search({ seen: false }, { uid: true });
+    const uids = (allUnseen || []).filter((uid) => uid >= sinceUid);
+    if (!uids.length) return;
 
-    for (const uid of uidsNewestFirst) {
+    for (const uid of uids) {
       let parsed;
       try {
         const msg = await client.fetchOne(String(uid), { source: true }, { uid: true });
