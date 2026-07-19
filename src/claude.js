@@ -9,7 +9,7 @@ const API_KEY = RAW_KEY.trim()
   .replace(/^["']|["']$/g, "")
   .trim();
 
-const anthropic = new Anthropic({ apiKey: API_KEY });
+export const anthropic = new Anthropic({ apiKey: API_KEY });
 
 // מידע לאבחון בלבד (לא חושף את המפתח עצמו).
 export function keyDebug() {
@@ -23,12 +23,13 @@ export function keyDebug() {
 
 // המודל: Sonnet 5 — איזון טוב של איכות ומחיר, ומצוין בהקפדה על כללים.
 // אפשר להחליף ל-"claude-opus-4-8" (חכם/יקר יותר) או "claude-haiku-4-5-20251001" (זול/מהיר).
-const MODEL = "claude-sonnet-5";
+export const MODEL = "claude-sonnet-5";
 
 // מיפוי הקטגוריות הקבועות → הטקסט המדויק מ-business-info.js.
 // המודל מחזיר רק תגית [[CANNED:key]], והקוד מציב את הטקסט מילה במילה —
 // כך מובטח שהתשובות הקבועות יוצאות בדיוק כפי שנכתבו, בלי ניסוח מחדש.
-const CANNED_MAP = {
+// משותף גם למודול המייל (src/email.js) כדי שאותן תשובות קבועות יחולו בשני הערוצים.
+export const CANNED_MAP = {
   shippingBeforeOrder: CANNED.shippingBeforeOrder,
   shippingAfterOrder: CANNED.shippingAfterOrder,
   returns: CANNED.returns,
@@ -37,6 +38,16 @@ const CANNED_MAP = {
   handoff: CANNED.handoff,
   finalFallback: CANNED.finalFallback,
 };
+
+// מציבה טקסט קבוע מדויק אם נמצאה תגית [[CANNED:key]] בתשובת המודל, אחרת מחזירה
+// את התשובה החופשית נקייה מתגיות שבריריות. משותף לוואטסאפ ולמייל.
+export function resolveCanned(raw) {
+  const match = raw.match(/\[\[CANNED:(\w+)\]\]/);
+  if (match && CANNED_MAP[match[1]]) {
+    return CANNED_MAP[match[1]];
+  }
+  return raw.replace(/\[\[CANNED:\w+\]\]/g, "").trim();
+}
 
 const SYSTEM_PROMPT = `את ${identity.botName}, ${identity.role}. ${identity.brand} מוכרת ריסים מגנטיים ואביזרי איפור. את עונה ללקוחות בוואטסאפ.
 
@@ -113,13 +124,5 @@ export async function getReply(userMessage, history = []) {
     .join("")
     .trim();
 
-  // אם המודל בחר קטגוריה קבועה — מציבים את הטקסט המדויק מהמקור (מילה במילה).
-  const match = raw.match(/\[\[CANNED:(\w+)\]\]/);
-  if (match && CANNED_MAP[match[1]]) {
-    return CANNED_MAP[match[1]];
-  }
-
-  // אחרת — התשובה החופשית של הבוט (מנקים תגית שברירית אם נשארה בטעות).
-  const cleaned = raw.replace(/\[\[CANNED:\w+\]\]/g, "").trim();
-  return cleaned || CANNED.finalFallback;
+  return resolveCanned(raw) || CANNED.finalFallback;
 }

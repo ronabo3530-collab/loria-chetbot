@@ -3,6 +3,7 @@ import { getReply } from "./claude.js";
 import { sendWhatsAppMessage, parseIncomingMessage } from "./whatsapp.js";
 import { identity } from "./business-info.js";
 import { logToSheet } from "./sheets.js";
+import { startEmailPolling } from "./email.js";
 
 const app = express();
 app.use(express.json());
@@ -206,4 +207,5 @@ app.get("/chat", (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 השרת רץ על פורט ${PORT}`);
+  startEmailPolling();
 });
