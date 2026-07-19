@@ -1,12 +1,13 @@
 // מענה אוטומטי למיילים של לקוחות + תיוג מיילים שדולגו (פרסומות/ספאם/לא רלוונטי).
-// עובד ב"בדיקה מחזורית" (polling) — כל כמה דקות בודק הודעות חדשות בתיבה, לא
-// דורש Google Cloud Console ולא OAuth: רק חשבון + סיסמת אפליקציה (App Password).
+// קריאה: IMAP + סיסמת אפליקציה (App Password), כמו קודם. שליחה: Gmail API
+// (HTTPS) במקום SMTP גולמי — Railway (וכל ספקי הענן בפועל) חוסמים את פורטי
+// ה-SMTP (465/587) ברמת הרשת כדי למנוע ניצול לספאם, אז שליחה חייבת לעבור HTTPS.
 // אם EMAIL_USER / EMAIL_APP_PASSWORD לא מוגדרים — התכונה כבויה, הבוט ממשיך לעבוד רגיל.
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
-import nodemailer from "nodemailer";
 import { identity } from "./business-info.js";
 import { getEmailReply } from "./email-claude.js";
+import { sendGmailMessage, isGmailApiConfigured } from "./gmail-send.js";
 
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_APP_PASSWORD = process.env.EMAIL_APP_PASSWORD;
@@ -14,20 +15,6 @@ const POLL_INTERVAL_MS = 2 * 60 * 1000; // בדיקת תיבה כל 2 דקות
 
 const SKIPPED_LABEL = "דולג ע\"י הבוט";
 const ANSWERED_LABEL = "נענה ע\"י הבוט";
-
-// שימוש ב-STARTTLS על פורט 587 במפורש (במקום TLS ישיר על 465) — חלק מספקי הענן
-// חוסמים/מתקשים עם פורט 465, ו-587 נתמך הרבה יותר טוב ברשתות מוגבלות.
-const transporter =
-  EMAIL_USER && EMAIL_APP_PASSWORD
-    ? nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 587,
-        secure: false,
-        requireTLS: true,
-        auth: { user: EMAIL_USER, pass: EMAIL_APP_PASSWORD },
-        connectionTimeout: 20000,
-      })
-    : null;
 
 // סינון חינמי (בלי לקרוא ל-Claude בכלל) — תופס את רוב הספאם/הפרסומות בלי שום עלות.
 function looksAutomated(fromAddress, parsed) {
@@ -110,13 +97,13 @@ async function processInbox() {
       }
 
       try {
-        await transporter.sendMail({
-          from: `"${identity.botName} מלוריה" <${EMAIL_USER}>`,
+        await sendGmailMessage({
+          fromName: `${identity.botName} מלוריה`,
+          fromAddress: EMAIL_USER,
           to: fromAddress,
           subject: /^re:/i.test(subject) ? subject : `Re: ${subject}`,
           text: reply,
           inReplyTo: parsed.messageId,
-          references: parsed.messageId,
         });
         console.log(`📤 נשלחה תשובת מייל ל-${fromAddress}`);
         await ensureLabel(client, ANSWERED_LABEL);
@@ -137,6 +124,10 @@ async function processInbox() {
 export function startEmailPolling() {
   if (!EMAIL_USER || !EMAIL_APP_PASSWORD) {
     console.log("ℹ️ מענה אוטומטי למייל לא מוגדר (EMAIL_USER/EMAIL_APP_PASSWORD חסרים) — מדלגים.");
+    return;
+  }
+  if (!isGmailApiConfigured()) {
+    console.log("ℹ️ מענה אוטומטי למייל לא מוגדר (GMAIL_CLIENT_ID/GMAIL_CLIENT_SECRET/GMAIL_REFRESH_TOKEN חסרים) — מדלגים.");
     return;
   }
 
