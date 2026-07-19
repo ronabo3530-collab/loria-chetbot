@@ -70,7 +70,12 @@ async function processInbox() {
     const uids = await client.search({ seen: false }, { uid: true });
     if (!uids || !uids.length) return;
 
-    for (const uid of uids) {
+    // מעבדים מהחדש לישן: אם יש עומס גדול של מיילים ישנים בתיבה (למשל גל
+    // הודעות אוטומטיות), לא רוצים שמייל אמיתי וטרי של לקוחה יחכה בתור
+    // מאחורי אלפי הודעות ישנות. UID גבוה יותר = מייל חדש יותר.
+    const uidsNewestFirst = [...uids].sort((a, b) => b - a);
+
+    for (const uid of uidsNewestFirst) {
       let parsed;
       try {
         const msg = await client.fetchOne(String(uid), { source: true }, { uid: true });
