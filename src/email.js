@@ -16,10 +16,29 @@ const POLL_INTERVAL_MS = 2 * 60 * 1000; // בדיקת תיבה כל 2 דקות
 const SKIPPED_LABEL = "דולג ע\"י הבוט";
 const ANSWERED_LABEL = "נענה ע\"י הבוט";
 
-// סינון חינמי (בלי לקרוא ל-Claude בכלל) — תופס את רוב הספאם/הפרסומות בלי שום עלות.
+// דומיינים של שירותים/אפליקציות מחוברות (Shopify, סליקה, אפליקציות חנות וכו') —
+// אף לקוחה אמיתית לא כותבת מכתובת כזו, אז אין טעם לשלם ל-Claude כדי לסנן אותן.
+const AUTOMATED_DOMAINS = [
+  "shopify.com",
+  "shopifyemail.com",
+  "paypal.com",
+  "paypal.co.il",
+  "loox.app",
+  "advansoftware.com", // Kip
+  "winwinshop.app",
+  "stripe.com",
+  "canva.com",
+  "tiktok.com",
+  "facebook.com",
+  "facebookmail.com",
+];
+
+// סינון חינמי (בלי לקרוא ל-Claude בכלל) — תופס את רוב הספאם/ההודעות האוטומטיות בלי שום עלות.
 function looksAutomated(fromAddress, parsed) {
   const addr = (fromAddress || "").toLowerCase();
   if (/no-?reply|mailer-daemon|do-?not-?reply|postmaster/.test(addr)) return true;
+  const domain = addr.split("@")[1] || "";
+  if (AUTOMATED_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`))) return true;
   if (parsed.headers?.has?.("list-unsubscribe")) return true;
   const precedence = parsed.headers?.get?.("precedence");
   if (precedence && /bulk|junk|list/i.test(String(precedence))) return true;
