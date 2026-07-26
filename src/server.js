@@ -83,7 +83,7 @@ app.post("/webhook", async (req, res) => {
     try {
       await sendWhatsAppMessage(
         from,
-        `אופס, קרתה תקלה קטנה 🙏 אפשר לנסות שוב עוד רגע? אם זה חוזר, אפשר לפנות אלינו בוואטסאפ: ${identity.supportWhatsApp}`
+        `אופס, קרתה תקלה קטנה 🙏 אפשר לנסות שוב עוד רגע? אם זה חוזר, אפשר לפנות אלינו במייל: ${identity.supportEmail}`
       );
     } catch {
       // אם גם השליחה נכשלה — כבר רשמנו את השגיאה למעלה.
