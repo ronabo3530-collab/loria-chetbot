@@ -102,7 +102,21 @@ app.get("/", (_req, res) => res.send("הבוט פעיל ✅"));
 // ----------------------------------------------------------------------------
 const DRAFT_SECRET = process.env.EMAIL_DRAFT_SECRET;
 
+// CORS — מאפשר קריאה ל-endpoint הזה בלבד ממייל Gmail (לצורך ה-Bookmarklet).
+// שאר ה-API לא נגיש מהדפדפן ממקורות אחרים.
+function setDraftCors(res) {
+  res.set("Access-Control-Allow-Origin", "https://mail.google.com");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, x-draft-secret");
+}
+
+app.options("/api/draft-reply", (_req, res) => {
+  setDraftCors(res);
+  res.sendStatus(204);
+});
+
 app.post("/api/draft-reply", async (req, res) => {
+  setDraftCors(res);
   if (!DRAFT_SECRET || req.get("x-draft-secret") !== DRAFT_SECRET) {
     return res.sendStatus(401);
   }
