@@ -3,6 +3,7 @@ import { getReply } from "./claude.js";
 import { sendWhatsAppMessage, parseIncomingMessage } from "./whatsapp.js";
 import { identity } from "./business-info.js";
 import { logToSheet } from "./sheets.js";
+import { draftEmailReply } from "./email-draft.js";
 
 const app = express();
 app.use(express.json());
@@ -93,6 +94,34 @@ app.post("/webhook", async (req, res) => {
 
 // בדיקת בריאות פשוטה (שימושי לענן ולבדיקה בדפדפן).
 app.get("/", (_req, res) => res.send("הבוט פעיל ✅"));
+
+// ----------------------------------------------------------------------------
+//  POST /api/draft-reply — מנסחת טיוטת תשובה למייל, רק לפי בקשה מפורשת
+//  (כפתור ב-Gmail Add-on). לא אוטומטי, לא שולח כלום — רק מחזיר טקסט טיוטה.
+//  מוגן במפתח סודי משותף כדי שלא כל אחד יוכל לקרוא לזה ולבזבז קרדיט Claude.
+// ----------------------------------------------------------------------------
+const DRAFT_SECRET = process.env.EMAIL_DRAFT_SECRET;
+
+app.post("/api/draft-reply", async (req, res) => {
+  if (!DRAFT_SECRET || req.get("x-draft-secret") !== DRAFT_SECRET) {
+    return res.sendStatus(401);
+  }
+  try {
+    const { fromName, subject, bodyText } = req.body || {};
+    if (!bodyText || typeof bodyText !== "string") {
+      return res.status(400).json({ error: "missing bodyText" });
+    }
+    const reply = await draftEmailReply({
+      fromName: typeof fromName === "string" ? fromName.slice(0, 200) : "",
+      subject: typeof subject === "string" ? subject.slice(0, 300) : "",
+      bodyText: bodyText.slice(0, 6000),
+    });
+    res.json({ reply });
+  } catch (err) {
+    console.error("שגיאה בניסוח טיוטת מייל:", err);
+    res.status(500).json({ error: "server error" });
+  }
+});
 
 // ----------------------------------------------------------------------------
 //  עמוד בדיקה 🧪 — צ'אט בדפדפן לבדיקת הבוט בלי וואטסאפ.
