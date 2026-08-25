@@ -138,6 +138,62 @@ app.post("/api/draft-reply", async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+//  GET /gmail-draft-bridge — "גשר" עבור ה-Bookmarklet ב-Gmail.
+//  Gmail חוסמת (ב-CSP) קריאות ישירות מהדף שלה לשרתים חיצוניים, אז ה-Bookmarklet
+//  פותח את הדף הקטן הזה בחלון נפרד (מהדומיין שלנו, לא כפוף למדיניות של Gmail),
+//  שמבצע את הקריאה בעצמו ומעביר את התשובה בחזרה ל-Gmail דרך postMessage.
+//  הסוד מוטבע כאן בצד השרת בלבד — לא נחשף ב-Bookmarklet הגלוי בדפדפן.
+// ----------------------------------------------------------------------------
+app.get("/gmail-draft-bridge", (_req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="he" dir="rtl">
+<head><meta charset="utf-8"><title>ליאור — גשר</title></head>
+<body style="font-family:Arial,sans-serif;padding:20px;text-align:center;">
+<div id="msg">מנסחת טיוטה... ⏳</div>
+<script>
+  var GMAIL_ORIGIN = "https://mail.google.com";
+  var SECRET = ${JSON.stringify(DRAFT_SECRET || "")};
+
+  function reply(type, data) {
+    if (window.opener) {
+      window.opener.postMessage(Object.assign({ type: type }, data), GMAIL_ORIGIN);
+    }
+  }
+
+  window.addEventListener("message", function (e) {
+    if (e.origin !== GMAIL_ORIGIN || !e.data || e.data.type !== "loria-draft-request") return;
+    fetch("/api/draft-reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-draft-secret": SECRET },
+      body: JSON.stringify({
+        fromName: e.data.fromName,
+        subject: e.data.subject,
+        bodyText: e.data.bodyText,
+      }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        reply("loria-draft-result", { reply: data.reply || "" });
+        document.getElementById("msg").innerText = "בוצע ✓ אפשר לסגור את החלון";
+        setTimeout(function () { window.close(); }, 400);
+      })
+      .catch(function (err) {
+        reply("loria-draft-error", { error: String(err) });
+        document.getElementById("msg").innerText = "שגיאה: " + err;
+      });
+  });
+
+  if (window.opener) {
+    window.opener.postMessage({ type: "loria-bridge-ready" }, GMAIL_ORIGIN);
+  } else {
+    document.getElementById("msg").innerText = "יש לפתוח את הדף הזה דרך הכפתור ב-Gmail.";
+  }
+</script>
+</body>
+</html>`);
+});
+
+// ----------------------------------------------------------------------------
 //  עמוד בדיקה 🧪 — צ'אט בדפדפן לבדיקת הבוט בלי וואטסאפ.
 //  זמני: אפשר להסיר לפני העלייה לאוויר האמיתית.
 // ----------------------------------------------------------------------------
