@@ -194,6 +194,51 @@ app.get("/gmail-draft-bridge", (_req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+//  GET /gmail-draft-install — עמוד התקנה של ה-Bookmarklet.
+//  במקום להעתיק-להדביק קוד ארוך לתיבת עריכת סימנייה (מועד לטעויות),
+//  גוררים את הקישור ישירות לסרגל הסימניות — הדרך התקנית להתקין bookmarklet.
+// ----------------------------------------------------------------------------
+app.get("/gmail-draft-install", (_req, res) => {
+  const bookmarklet =
+    "javascript:(function () { var BRIDGE_URL = 'https://loria-chetbot-production.up.railway.app/gmail-draft-bridge'; var BRIDGE_ORIGIN = 'https://loria-chetbot-production.up.railway.app'; var subjectEl = document.querySelector('h2.hP'); var subject = subjectEl ? subjectEl.innerText : ''; var senderEl = document.querySelector('.gD'); var fromName = senderEl ? (senderEl.getAttribute('name') || senderEl.innerText || '') : ''; var bodies = document.querySelectorAll('.a3s.aiL'); var bodyEl = bodies.length ? bodies[bodies.length - 1] : null; var bodyText = bodyEl ? bodyEl.innerText : ''; if (!bodyText) { alert('לא הצלחתי למצוא מייל פתוח. ודא/י שמייל של לקוחה פתוח לקריאה ונסה/י שוב.'); return; } var composeBoxes = document.querySelectorAll('div[aria-label=\"Message Body\"], div[aria-label=\"גוף ההודעה\"]'); var compose = composeBoxes.length ? composeBoxes[composeBoxes.length - 1] : null; var old = document.getElementById('loriaDraftToast'); if (old) old.remove(); var toast = document.createElement('div'); toast.id = 'loriaDraftToast'; toast.style.cssText = 'position:fixed;bottom:24px;left:24px;z-index:2147483647;background:#075e54;color:#fff;padding:12px 20px;border-radius:10px;font-family:Arial,sans-serif;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.3);direction:rtl;'; toast.innerText = 'ליאור מנסחת טיוטה... ⏳'; document.body.appendChild(toast); function showFallback(reply) { var overlay = document.createElement('div'); overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;'; overlay.innerHTML = '<div style=\"background:#fff;padding:24px;border-radius:12px;max-width:520px;width:90%;direction:rtl;text-align:right;box-shadow:0 8px 30px rgba(0,0,0,.3);\">' + '<div style=\"font-weight:bold;margin-bottom:6px;font-size:15px;\">לא מצאתי תיבת תגובה פתוחה</div>' + '<div style=\"font-size:13px;color:#555;margin-bottom:12px;\">לחצ/י \"Reply\" במייל, ואז שוב על הכפתור. בינתיים הנה הטיוטה להעתקה:</div>' + '<textarea id=\"loriaDraftText\" readonly style=\"width:100%;height:200px;padding:10px;font-size:14px;direction:rtl;box-sizing:border-box;border:1px solid #ccc;border-radius:8px;font-family:Arial,sans-serif;\"></textarea>' + '<div style=\"margin-top:14px;display:flex;gap:8px;justify-content:flex-start;\">' + '<button id=\"loriaCopyBtn\" style=\"padding:10px 18px;background:#075e54;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;\">העתקה</button>' + '<button id=\"loriaCloseBtn\" style=\"padding:10px 18px;background:#eee;border:none;border-radius:8px;cursor:pointer;font-size:14px;\">סגירה</button>' + '</div></div>'; document.body.appendChild(overlay); document.getElementById('loriaDraftText').value = reply; document.getElementById('loriaCloseBtn').onclick = function () { overlay.remove(); }; document.getElementById('loriaCopyBtn').onclick = function () { var ta = document.getElementById('loriaDraftText'); ta.select(); document.execCommand('copy'); document.getElementById('loriaCopyBtn').innerText = 'הועתק ✓'; }; } var bridge = window.open(BRIDGE_URL, 'loriaDraftBridge', 'width=380,height=160'); if (!bridge) { toast.innerText = 'הדפדפן חסם חלון קופץ — אשר/י חלונות קופצים לאתר הזה ונסה/י שוב.'; setTimeout(function () { toast.remove(); }, 6000); return; } var handled = false; function onMessage(e) { if (e.origin !== BRIDGE_ORIGIN || !e.data) return; if (e.data.type === 'loria-bridge-ready') { bridge.postMessage({ type: 'loria-draft-request', fromName: fromName, subject: subject, bodyText: bodyText }, BRIDGE_ORIGIN); return; } if (e.data.type === 'loria-draft-result') { handled = true; window.removeEventListener('message', onMessage); var reply = e.data.reply || ''; if (!reply) { toast.innerText = 'שגיאה: לא התקבלה תשובה מהשרת.'; setTimeout(function () { toast.remove(); }, 4000); return; } if (compose) { compose.focus(); var inserted = document.execCommand('insertText', false, reply); if (!inserted) compose.innerText = reply + '\\n\\n' + compose.innerText; toast.innerText = 'הטיוטה הוכנסה לתיבת התגובה ✓'; setTimeout(function () { toast.remove(); }, 3000); } else { toast.remove(); showFallback(reply); } } if (e.data.type === 'loria-draft-error') { handled = true; window.removeEventListener('message', onMessage); toast.innerText = 'שגיאת חיבור לשרת: ' + e.data.error; setTimeout(function () { toast.remove(); }, 5000); } } window.addEventListener('message', onMessage); setTimeout(function () { if (!handled) { window.removeEventListener('message', onMessage); toast.innerText = 'התהליך לקח יותר מדי זמן, נסה/י שוב.'; setTimeout(function () { toast.remove(); }, 4000); } }, 20000); })();";
+
+  res.type("html").send(`<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>התקנת כפתור ליאור ל-Gmail</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; line-height: 1.7; color: #222; }
+  h1 { font-size: 22px; }
+  .bookmarklet-btn { display: inline-block; background: #e91e63; color: #fff; padding: 14px 28px; border-radius: 10px;
+    font-weight: bold; font-size: 16px; text-decoration: none; cursor: grab; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  .step { background: #f6f6f6; border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
+  code { background: #eee; padding: 2px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>✍️ התקנת כפתור "ליאור — טיוטת תשובה"</h1>
+  <div class="step">
+    <b>שלב 1:</b> ודאו שסרגל הסימניות מוצג בכרום (Ctrl+Shift+B אם הוא מוסתר).
+  </div>
+  <div class="step">
+    <b>שלב 2:</b> גררו את הכפתור הוורוד הזה <u>ישירות</u> לסרגל הסימניות (לא ללחוץ עליו — לגרור אותו):
+    <div style="text-align:center;margin-top:14px;">
+      <a id="bmBtn" class="bookmarklet-btn" href="${bookmarklet}" onclick="return false;">✍️ ליאור — טיוטת תשובה</a>
+    </div>
+  </div>
+  <div class="step">
+    <b>שלב 3:</b> ב-Gmail: פתחו מייל של לקוחה ← לחצו <b>Reply</b> ← לחצו על הסימנייה שגררתם ← הטיוטה תופיע בתיבת התגובה ← בדקו ולחצו <b>Send</b>.
+  </div>
+  <p style="color:#888;font-size:13px;">
+    לא הצליח לגרור? <a href="#" onclick="navigator.clipboard.writeText(document.getElementById('bmBtn').href).then(function(){alert('הקוד הועתק. צרו סימנייה חדשה בעצמכם (לחיצה ימנית על סרגל הסימניות ← Add page) והדביקו אותו בשדה ה-URL.');}); return false;">לחצו כאן להעתקת הקוד</a> והדביקו אותו ידנית בשדה ה-URL של סימנייה חדשה.
+  </p>
+</body>
+</html>`);
+});
+
+// ----------------------------------------------------------------------------
 //  עמוד בדיקה 🧪 — צ'אט בדפדפן לבדיקת הבוט בלי וואטסאפ.
 //  זמני: אפשר להסיר לפני העלייה לאוויר האמיתית.
 // ----------------------------------------------------------------------------
