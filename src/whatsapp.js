@@ -39,7 +39,7 @@ export async function sendWhatsAppMessage(to, text) {
 /**
  * מפענח את גוף ה-webhook הנכנס מ-Meta ומחזיר את ההודעה הראשונה (אם קיימת).
  * מחזיר null אם זה לא אירוע הודעה (למשל עדכון סטטוס "נמסר/נקרא").
- * @returns {{ from: string, text: string|null, type: string, name: string|null } | null}
+ * @returns {{ from: string, text: string|null, type: string, name: string|null, phoneNumberId: string|null } | null}
  */
 export function parseIncomingMessage(body) {
   try {
@@ -58,6 +58,8 @@ export function parseIncomingMessage(body) {
       // רק הודעות טקסט מכילות תוכן; לשאר (תמונה/סטיקר/אודיו) נחזיר null
       text: message.type === "text" ? message.text?.body ?? null : null,
       name: contactName,
+      // מזהה המספר העסקי שקיבל את ההודעה (כדי שנדע לאיזה מספר לענות / להתעלם)
+      phoneNumberId: value?.metadata?.phone_number_id ?? null,
     };
   } catch (err) {
     console.error("שגיאה בפענוח הודעה נכנסת:", err);

@@ -1,7 +1,7 @@
 {
-  "name": "magnetic-lashes-whatsapp-bot",
+  "name": "miloa-whatsapp-bot",
   "version": "1.0.0",
-  "description": "צ'אטבוט וואטסאפ מבוסס Claude לעסק ריסים מגנטיים",
+  "description": "צ'אטבוט וואטסאפ מבוסס Claude לעסק MILOA (הסד נגד נחירות)",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
