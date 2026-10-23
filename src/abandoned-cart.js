@@ -115,6 +115,47 @@ const CHECKOUTS_QUERY = `{
 
 const ORDERS_QUERY = `query($q: String!) { orders(first: 1, query: $q) { edges { node { id } } } }`;
 
+const BUYERS_QUERY = `query($after: String) {
+  orders(first: 250, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    edges { node {
+      email phone
+      customer { email phone }
+      shippingAddress { phone }
+      billingAddress { phone }
+    } }
+  }
+}`;
+
+// כל מי שהזמין (לפי טלפון/מייל) — כדי לא לשלוח "השלם הזמנה" למי שכבר קנה, גם בצ'קאאוט אחר.
+// ⚠️ ההרשאה read_orders מחזירה הזמנות מ-60 הימים האחרונים בלבד.
+let buyersCache = null;
+export async function fetchBuyers() {
+  if (buyersCache && Date.now() - buyersCache.at < 10 * 60 * 1000) return buyersCache;
+  const phones = new Set();
+  const emails = new Set();
+  let after = null;
+  do {
+    const data = await shopifyGraphQL(BUYERS_QUERY, { after });
+    for (const { node } of data.orders.edges) {
+      [node.phone, node.customer?.phone, node.shippingAddress?.phone, node.billingAddress?.phone]
+        .map(normalizePhone)
+        .filter(Boolean)
+        .forEach((p) => phones.add(p));
+      [node.email, node.customer?.email].filter(Boolean).forEach((e) => emails.add(e.toLowerCase()));
+    }
+    const pi = data.orders.pageInfo;
+    after = pi.hasNextPage ? pi.endCursor : null;
+  } while (after);
+  buyersCache = { at: Date.now(), phones, emails };
+  return buyersCache;
+}
+
+export async function hasBought(phone, email) {
+  const b = await fetchBuyers();
+  return b.phones.has(phone) || (email ? b.emails.has(email.toLowerCase()) : false);
+}
+
 export async function hasOrderedSince(email, sinceIso) {
   if (!email) return false;
   const data = await shopifyGraphQL(ORDERS_QUERY, { q: `email:${email} created_at:>=${sinceIso}` });
@@ -177,7 +218,7 @@ async function scanOnce() {
       continue;
     }
     // אם כבר הזמין (בצ'קאאוט אחר) מאז — לא צריך תזכורת.
-    if (await hasOrderedSince(email, node.createdAt)) {
+    if ((await hasBought(phone, email)) || (await hasOrderedSince(email, node.createdAt))) {
       sentCheckouts.add(node.id);
       continue;
     }

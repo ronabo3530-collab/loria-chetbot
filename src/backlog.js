@@ -12,6 +12,7 @@ import { logToSheet } from "./sheets.js";
 import {
   shopifyGraphQL,
   hasOrderedSince,
+  hasBought,
   pickContact,
   sentPhones,
   persistState,
@@ -126,7 +127,7 @@ export async function buildRecipients() {
       stats.recent++;
       continue;
     }
-    if (await hasOrderedSince(r.email, r.createdAt)) {
+    if ((await hasBought(r.phone, r.email)) || (await hasOrderedSince(r.email, r.createdAt))) {
       stats.ordered++;
       continue;
     }
