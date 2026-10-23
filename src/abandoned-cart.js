@@ -41,8 +41,8 @@ function renderTemplateText(firstName, url) {
 // ---------------------------------------------------------------------------
 //  זיכרון שליחות (כדי לא לשלוח פעמיים לאותה עגלה / לאותו מספר)
 // ---------------------------------------------------------------------------
-const sentCheckouts = new Set();
-const sentPhones = new Map(); // phone -> timestamp של השליחה האחרונה
+export const sentCheckouts = new Set();
+export const sentPhones = new Map(); // phone -> timestamp של השליחה האחרונה
 
 try {
   const saved = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
@@ -52,7 +52,7 @@ try {
   // אין קובץ עדיין — מתחילים נקי
 }
 
-function persistState() {
+export function persistState() {
   try {
     const cutoff = Date.now() - 48 * 60 * 60 * 1000;
     for (const [p, t] of sentPhones) if (t < cutoff) sentPhones.delete(p);
@@ -89,7 +89,7 @@ async function getShopifyToken() {
   return cachedToken;
 }
 
-async function shopifyGraphQL(query, variables = {}) {
+export async function shopifyGraphQL(query, variables = {}) {
   const token = await getShopifyToken();
   const res = await fetch(`https://${SHOP}/admin/api/${API_VERSION}/graphql.json`, {
     method: "POST",
@@ -115,7 +115,7 @@ const CHECKOUTS_QUERY = `{
 
 const ORDERS_QUERY = `query($q: String!) { orders(first: 1, query: $q) { edges { node { id } } } }`;
 
-async function hasOrderedSince(email, sinceIso) {
+export async function hasOrderedSince(email, sinceIso) {
   if (!email) return false;
   const data = await shopifyGraphQL(ORDERS_QUERY, { q: `email:${email} created_at:>=${sinceIso}` });
   return data.orders.edges.length > 0;
@@ -142,7 +142,7 @@ export function normalizePhone(raw) {
   return digits.length >= 10 && digits.length <= 15 ? digits : null;
 }
 
-function pickContact(node) {
+export function pickContact(node) {
   const phone = [node.customer?.phone, node.shippingAddress?.phone, node.billingAddress?.phone]
     .map(normalizePhone)
     .find(Boolean);

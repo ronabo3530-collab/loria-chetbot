@@ -5,6 +5,7 @@ import { identity } from "./business-info.js";
 import { logToSheet } from "./sheets.js";
 import { getHistory, saveTurn } from "./conversations.js";
 import { startAbandonedCartRecovery } from "./abandoned-cart.js";
+import { previewBacklog, sendBacklogTest, startBacklogScheduler } from "./backlog.js";
 
 const app = express();
 app.use(express.json());
@@ -78,6 +79,36 @@ app.post("/webhook", async (req, res) => {
     } catch {
       // אם גם השליחה נכשלה — כבר רשמנו את השגיאה למעלה.
     }
+  }
+});
+
+// ----------------------------------------------------------------------------
+//  ניהול 🔐 — תצוגה מקדימה ושליחת בדיקה לשליחה החד-פעמית. דורש כותרת x-admin-secret.
+//  (השליחה האמיתית לכולם מתבצעת רק לפי BACKLOG_SEND_AT ו-BACKLOG_LIVE.)
+// ----------------------------------------------------------------------------
+function requireAdmin(req, res, next) {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret || req.get("x-admin-secret") !== secret) return res.sendStatus(404);
+  next();
+}
+
+app.get("/admin/backlog/preview", requireAdmin, async (_req, res) => {
+  try {
+    res.json(await previewBacklog());
+  } catch (err) {
+    console.error("שגיאה בתצוגה מקדימה:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/admin/backlog/test", requireAdmin, async (req, res) => {
+  try {
+    const { phone, name } = req.body || {};
+    if (!/^\d{10,15}$/.test(String(phone))) return res.status(400).json({ error: "bad phone" });
+    res.json(await sendBacklogTest(String(phone), name));
+  } catch (err) {
+    console.error("שגיאה בשליחת בדיקה:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -197,4 +228,5 @@ app.get("/chat", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 השרת רץ על פורט ${PORT}`);
   startAbandonedCartRecovery();
+  startBacklogScheduler();
 });
