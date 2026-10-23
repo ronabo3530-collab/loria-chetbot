@@ -37,6 +37,51 @@ export async function sendWhatsAppMessage(to, text) {
 }
 
 /**
+ * שולח הודעת תבנית (template) מאושרת — הדרך היחידה ליזום שיחה מחוץ לחלון 24 השעות.
+ * @param {string} to - מספר הטלפון בפורמט בינלאומי ללא פלוס (972...)
+ * @param {string} templateName - שם התבנית כפי שאושרה ב-WhatsApp Manager
+ * @param {string[]} bodyParams - ערכי המשתנים {{1}}, {{2}}... בגוף התבנית
+ * @param {string} [language] - קוד שפה של התבנית
+ */
+export async function sendWhatsAppTemplate(to, templateName, bodyParams, language = "he") {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+
+  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "template",
+      template: {
+        name: templateName,
+        language: { code: language },
+        components: [
+          {
+            type: "body",
+            parameters: bodyParams.map((text) => ({ type: "text", text })),
+          },
+        ],
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error("שגיאה בשליחת תבנית וואטסאפ:", res.status, errBody);
+    throw new Error(`WhatsApp template error: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+/**
  * מפענח את גוף ה-webhook הנכנס מ-Meta ומחזיר את ההודעה הראשונה (אם קיימת).
  * מחזיר null אם זה לא אירוע הודעה (למשל עדכון סטטוס "נמסר/נקרא").
  * @returns {{ from: string, text: string|null, type: string, name: string|null, phoneNumberId: string|null } | null}

@@ -3,31 +3,13 @@ import { getReply } from "./claude.js";
 import { sendWhatsAppMessage, parseIncomingMessage } from "./whatsapp.js";
 import { identity } from "./business-info.js";
 import { logToSheet } from "./sheets.js";
+import { getHistory, saveTurn } from "./conversations.js";
+import { startAbandonedCartRecovery } from "./abandoned-cart.js";
 
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-
-// ----------------------------------------------------------------------------
-//  זיכרון שיחה — נשמר בזיכרון (RAM) לפי מספר טלפון.
-//  שומרים חלון של ההודעות האחרונות בלבד כדי לחסוך בעלות ובזמן.
-//  ⚠️ בהפעלה מחדש של השרת הזיכרון מתאפס. לשלב מתקדם אפשר להחליף ל-Redis/DB.
-// ----------------------------------------------------------------------------
-const conversations = new Map();
-const MAX_HISTORY = 10; // מספר ההודעות האחרונות שנשמרות (user+assistant)
-
-function getHistory(phone) {
-  return conversations.get(phone) ?? [];
-}
-
-function saveTurn(phone, userText, botText) {
-  const history = getHistory(phone);
-  history.push({ role: "user", content: userText });
-  history.push({ role: "assistant", content: botText });
-  // שומרים רק את החלון האחרון
-  conversations.set(phone, history.slice(-MAX_HISTORY));
-}
 
 // ----------------------------------------------------------------------------
 //  GET /webhook — אימות ה-webhook מול Meta (פעם אחת, בעת ההגדרה).
@@ -214,4 +196,5 @@ app.get("/chat", (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 השרת רץ על פורט ${PORT}`);
+  startAbandonedCartRecovery();
 });
