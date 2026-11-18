@@ -1,11 +1,11 @@
 // ----------------------------------------------------------------------------
-//  שחזור עגלות נטושות 🛒 — רועי פונה בוואטסאפ ללקוחות שהשאירו טלפון ולא סיימו הזמנה.
+//  שחזור עגלות נטושות 🛒 — נועה פונה בוואטסאפ ללקוחות שהשאירו טלפון ולא סיימו הזמנה.
 //
 //  איך זה עובד:
 //   1. כל כמה דקות שואלים את Shopify (Admin GraphQL) מה הצ'קאאוטים הנטושים האחרונים.
 //   2. מי שעברה שעה מהנטישה (ABANDONED_CART_DELAY_MIN), השאיר טלפון ולא קנה — נשלחת לו
 //      הודעת תבנית (template) מאושרת של Meta, כי זו הדרך היחידה ליזום שיחה.
-//   3. מזריעים את ההודעה להיסטוריית השיחה, כך שכשהלקוח עונה — רועי יודע על מה מדובר
+//   3. מזריעים את ההודעה להיסטוריית השיחה, כך שכשהלקוח עונה — נועה יודעת על מה מדובר
 //      וממשיך את השיחה כרגיל (חלון 24 שעות).
 //
 //  מצב בדיקה: ABANDONED_CART_DRY_RUN=true (ברירת מחדל) — רק רושם ללוג, לא שולח כלום.
@@ -22,7 +22,7 @@ const CLIENT_ID = (process.env.SHOPIFY_CLIENT_ID || "").trim();
 const CLIENT_SECRET = (process.env.SHOPIFY_CLIENT_SECRET || "").trim();
 const API_VERSION = "2025-10";
 
-const TEMPLATE_NAME = process.env.ABANDONED_CART_TEMPLATE || "abandoned_cart_miloa";
+const TEMPLATE_NAME = process.env.ABANDONED_CART_TEMPLATE || "bra_cart_recovery";
 const DELAY_MIN = Number(process.env.ABANDONED_CART_DELAY_MIN) || 60; // מתי לשלוח (דקות מהנטישה)
 const MAX_AGE_MIN = Number(process.env.ABANDONED_CART_MAX_AGE_MIN) || 180; // אחרי זה כבר לא שולחים
 const POLL_MS = 5 * 60 * 1000;
@@ -32,9 +32,11 @@ const STATE_FILE = process.env.ABANDONED_CART_STATE_FILE || "./abandoned-state.j
 // נוסח התבנית כפי שהוגשה ל-Meta — משמש להזרעת היסטוריית השיחה. חייב להתאים לתבנית המאושרת.
 function renderTemplateText(firstName, url) {
   return (
-    `היי ${firstName}, זה רועי מ-MILOA 🙂\n` +
-    `ראיתי שהשארת בעגלה את הסד נגד נחירות ולא סיימת את ההזמנה. אפשר להשלים אותה כאן: ${url}\n` +
-    `יש שאלות? אפשר פשוט לענות כאן ואני אעזור.`
+    `היי ${firstName}, זה נועה מ-MILOA 👋\n\n` +
+    `שמתי לב שהשארת בעגלה את חזיית miloa ולא סיימת את ההזמנה.\n\n` +
+    `אם יש לך שאלה על המידה, הבד או ההחזרות, אשמח לעזור כאן בוואטסאפ 🙂 ויש 30 יום ניסיון, אז אפשר להחליף או להחזיר אם זה לא מתאים.\n\n` +
+    `להשלמת ההזמנה:\n${url}\n\n` +
+    `אני כאן לכל שאלה 🙏`
   );
 }
 
@@ -211,7 +213,7 @@ async function scanOnce() {
     if (!phone) continue;
 
     candidates++;
-    // לא כותבים לאותו מספר פעמיים ביממה, ולא מפריעים למי שכבר משוחח עם רועי.
+    // לא כותבים לאותו מספר פעמיים ביממה, ולא מפריעים למי שכבר משוחחת עם נועה.
     const lastSent = sentPhones.get(phone);
     if (hasHistory(phone) || (lastSent && now - lastSent < 24 * 60 * 60 * 1000)) {
       sentCheckouts.add(node.id);
