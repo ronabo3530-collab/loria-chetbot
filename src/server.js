@@ -53,7 +53,7 @@ app.post("/webhook", async (req, res) => {
     if (!text) {
       await sendWhatsAppMessage(
         from,
-        "היי, אני רועי מצוות MILOA 🙂 כרגע אפשר לעזור בהודעות טקסט בלבד, אפשר לכתוב לי את השאלה?"
+        `היי, אני ${identity.botName} מצוות MILOA 🙂 כרגע אפשר לעזור בהודעות טקסט בלבד, אפשר לכתוב לי את השאלה?`
       );
       return;
     }
@@ -140,7 +140,7 @@ app.get("/chat", (_req, res) => {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>בדיקת הבוט — רועי של MILOA</title>
+<title>בדיקת הבוט — נועה של MILOA</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", Rubik, Arial, sans-serif;
@@ -166,10 +166,10 @@ app.get("/chat", (_req, res) => {
 <body>
   <header>
     <div class="avatar">🤍</div>
-    <div><h1>רועי — MILOA</h1><small>עמוד בדיקה • לא וואטסאפ אמיתי</small></div>
+    <div><h1>נועה — MILOA</h1><small>עמוד בדיקה • לא וואטסאפ אמיתי</small></div>
   </header>
   <div id="chat"></div>
-  <div class="note">💡 זו בדיקה פרטית שלך. כתבו לרועי כמו לקוח אמיתי.</div>
+  <div class="note">💡 זו בדיקה פרטית שלך. כתבו לנועה כמו לקוחה אמיתית.</div>
   <footer>
     <input id="input" placeholder="כתוב/כתבי הודעה…" autocomplete="off">
     <button id="send">➤</button>
@@ -195,7 +195,7 @@ app.get("/chat", (_req, res) => {
     input.value = "";
     send.disabled = true;
     bubble(message, "user");
-    const typing = bubble("רועי כותב…", "bot typing");
+    const typing = bubble("נועה כותבת…", "bot typing");
     try {
       const r = await fetch("/api/test-chat", {
         method: "POST",
@@ -218,7 +218,7 @@ app.get("/chat", (_req, res) => {
 
   send.onclick = ask;
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
-  bubble("היי, אני רועי מצוות MILOA 🙂 איך אפשר לעזור היום?", "bot");
+  bubble("היי, אני נועה מצוות MILOA 🙂 איך אפשר לעזור היום?", "bot");
   input.focus();
 </script>
 </body>

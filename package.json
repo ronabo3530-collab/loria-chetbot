@@ -1,7 +1,7 @@
 {
   "name": "miloa-whatsapp-bot",
   "version": "1.0.0",
-  "description": "צ'אטבוט וואטסאפ מבוסס Claude לעסק MILOA (הסד נגד נחירות)",
+  "description": "צ'אטבוט וואטסאפ מבוסס Claude לעסק MILOA (חזיית miloa להרמה ותמיכה ביציבה)",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
