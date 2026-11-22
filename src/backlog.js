@@ -6,25 +6,22 @@
 //  - מתוזמנת ל-BACKLOG_SEND_AT (ISO, UTC), חלון של 30 דקות. שליחה אמיתית רק אם
 //    BACKLOG_LIVE=true, אחרת רק רושמת ללוג מה היה נשלח.
 // ----------------------------------------------------------------------------
-import { sendWhatsAppTemplate } from "./whatsapp.js";
-import { saveTurn, hasHistory } from "./conversations.js";
-import { logToSheet } from "./sheets.js";
+import { hasHistory } from "./conversations.js";
 import {
   shopifyGraphQL,
   hasOrderedSince,
   hasBought,
   hasProduct,
   pickContact,
-  renderTemplateText,
+  sendCartReminder,
+  FALLBACK_NAME,
   sentPhones,
   persistState,
 } from "./abandoned-cart.js";
 
-const TEMPLATE_NAME = process.env.ABANDONED_CART_TEMPLATE || "bra_cart_recovery";
 const MIN_AGE_MIN = 60; // עגלות צעירות משעה מטופלות בזרימה השוטפת
 const MAX_AGE_DAYS = Number(process.env.BACKLOG_MAX_AGE_DAYS) || 7;
 const PRODUCT_URL = "https://trymiloa.com/products/miloa-posture-support-bra";
-const FALLBACK_NAME = "יקרה";
 
 const cleanName = (raw) =>
   String(raw || "")
@@ -109,14 +106,7 @@ export async function buildRecipients() {
 //  שליחה
 // ---------------------------------------------------------------------------
 async function sendOne({ phone, name, url }) {
-  const text = renderTemplateText(name, url);
-  await sendWhatsAppTemplate(phone, TEMPLATE_NAME, [name, url]);
-  saveTurn(
-    phone,
-    "[הודעת מערכת: הלקוחה נטשה עגלה באתר. נשלחה לה הודעת תזכורת בוואטסאפ עם קישור להשלמת ההזמנה.]",
-    text
-  );
-  logToSheet({ name, phone, userMessage: "[תזכורת עגלה נטושה — שליחה חד-פעמית]", botReply: text });
+  return sendCartReminder(phone, name, url);
 }
 
 const mask = (phone) => `***${phone.slice(-4)}`;
@@ -135,13 +125,24 @@ export async function previewBacklog() {
 /** שליחת בדיקה למספר אחד (עם קישור לדף המוצר במקום קישור צ'קאאוט). */
 export async function sendBacklogTest(phone, rawName) {
   const name = cleanName(rawName) || FALLBACK_NAME;
-  await sendOne({ phone, name, url: PRODUCT_URL });
-  return { template: TEMPLATE_NAME };
+  const { template } = await sendOne({ phone, name, url: PRODUCT_URL });
+  return { template };
 }
 
 let backlogDone = false;
+let backlogRunning = false;
 
 export async function runBacklog({ live }) {
+  if (backlogRunning) return console.log("📣 שליחה חד-פעמית כבר רצה — מדלג");
+  backlogRunning = true;
+  try {
+    await runBacklogInner({ live });
+  } finally {
+    backlogRunning = false;
+  }
+}
+
+async function runBacklogInner({ live }) {
   const { recipients, stats } = await buildRecipients();
   console.log(`📣 שליחה חד-פעמית: ${recipients.length} נמענות`, JSON.stringify(stats));
   let sent = 0;

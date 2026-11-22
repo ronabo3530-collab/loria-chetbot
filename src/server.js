@@ -5,7 +5,7 @@ import { identity } from "./business-info.js";
 import { logToSheet } from "./sheets.js";
 import { getHistory, saveTurn } from "./conversations.js";
 import { startAbandonedCartRecovery } from "./abandoned-cart.js";
-import { previewBacklog, sendBacklogTest, startBacklogScheduler } from "./backlog.js";
+import { previewBacklog, sendBacklogTest, startBacklogScheduler, runBacklog } from "./backlog.js";
 
 const app = express();
 app.use(express.json());
@@ -110,6 +110,12 @@ app.post("/admin/backlog/test", requireAdmin, async (req, res) => {
     console.error("שגיאה בשליחת בדיקה:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// מפעיל עכשיו את השליחה החד-פעמית לעגלות מהשבוע האחרון (רץ ברקע, תוצאה בלוג).
+app.post("/admin/backlog/run", requireAdmin, (_req, res) => {
+  res.json({ started: true });
+  runBacklog({ live: true }).catch((err) => console.error("שגיאה בשליחה החד-פעמית:", err.message));
 });
 
 // בדיקת בריאות פשוטה (שימושי לענן ולבדיקה בדפדפן).

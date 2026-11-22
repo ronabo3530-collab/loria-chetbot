@@ -75,7 +75,9 @@ export async function sendWhatsAppTemplate(to, templateName, bodyParams, languag
   if (!res.ok) {
     const errBody = await res.text();
     console.error("שגיאה בשליחת תבנית וואטסאפ:", res.status, errBody);
-    throw new Error(`WhatsApp template error: ${res.status}`);
+    const err = new Error(`WhatsApp template error: ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
 
   return res.json();

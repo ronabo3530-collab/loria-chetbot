@@ -8,7 +8,7 @@
 //   3. מזריעים את ההודעה להיסטוריית השיחה, כך שכשהלקוח עונה — נועה יודעת על מה מדובר
 //      וממשיך את השיחה כרגיל (חלון 24 שעות).
 //
-//  מצב בדיקה: ABANDONED_CART_DRY_RUN=true (ברירת מחדל) — רק רושם ללוג, לא שולח כלום.
+//  שליחה אמיתית כברירת מחדל. לכיבוי (מצב בדיקה שרק רושם ללוג): ABANDONED_CART_LIVE=false.
 //  ⚠️ זיכרון השליחות נשמר בקובץ; בפריסה מחדש ב-Railway הקובץ נמחק, ולכן שולחים רק
 //  לעגלות שנטשו בחלון זמן קצר (עד MAX_AGE_MIN) כדי לא לשלוח כפול/ישן.
 // ----------------------------------------------------------------------------
@@ -22,22 +22,57 @@ const CLIENT_ID = (process.env.SHOPIFY_CLIENT_ID || "").trim();
 const CLIENT_SECRET = (process.env.SHOPIFY_CLIENT_SECRET || "").trim();
 const API_VERSION = "2025-10";
 
-const TEMPLATE_NAME = process.env.ABANDONED_CART_TEMPLATE || "bra_cart_recovery";
 const DELAY_MIN = Number(process.env.ABANDONED_CART_DELAY_MIN) || 60; // מתי לשלוח (דקות מהנטישה)
 const MAX_AGE_MIN = Number(process.env.ABANDONED_CART_MAX_AGE_MIN) || 180; // אחרי זה כבר לא שולחים
 const POLL_MS = 5 * 60 * 1000;
-const DRY_RUN = String(process.env.ABANDONED_CART_DRY_RUN ?? "true").toLowerCase() !== "false";
+const DRY_RUN = String(process.env.ABANDONED_CART_LIVE ?? "true").toLowerCase() === "false";
 const STATE_FILE = process.env.ABANDONED_CART_STATE_FILE || "./abandoned-state.json";
 
-// נוסח התבנית כפי שהוגשה ל-Meta — משמש להזרעת היסטוריית השיחה. חייב להתאים לתבנית המאושרת.
-export function renderTemplateText(firstName, url) {
-  return (
-    `היי ${firstName}, זה נועה מ-MILOA 👋\n\n` +
-    `שמתי לב שהשארת בעגלה את חזיית miloa ולא סיימת את ההזמנה.\n\n` +
-    `אם יש לך שאלה על המידה, הבד או ההחזרות, אשמח לעזור כאן בוואטסאפ 🙂 ויש 30 יום ניסיון, אז אפשר להחליף או להחזיר אם זה לא מתאים.\n\n` +
-    `להשלמת ההזמנה:\n${url}\n\n` +
-    `אני כאן לכל שאלה 🙏`
-  );
+// נוסחי התבניות כפי שהוגשו ל-Meta — משמשים להזרעת היסטוריית השיחה. חייבים להתאים לתבניות.
+const renderUrgent = (name, url) =>
+  `היי ${name}, זה נועה מ-MILOA 👋\n\n` +
+  `שמתי לב שהשארת בעגלה את החזייה המייצבת של miloa ולא סיימת את ההזמנה.\n\n` +
+  `רציתי להגיד לך שהמבצע הולך להיגמר בקרוב, ואחריו המחיר יעלה משמעותית (מ-₪169 ל-₪239 לחזייה). כדאי להשלים את ההזמנה עכשיו ולהישאר עם המחיר המוזל ⏰\n\n` +
+  `ויש 30 יום ניסיון, אז אפשר להחליף או להחזיר בקלות אם זה לא מתאים.\n\n` +
+  `להשלמת ההזמנה:\n${url}\n\n` +
+  `אם יש לך שאלה על כל דבר, אני כאן 🙏`;
+
+const renderPlain = (name, url) =>
+  `היי ${name}, זה נועה מ-MILOA 👋\n\n` +
+  `שמתי לב שהשארת בעגלה את חזיית miloa ולא סיימת את ההזמנה.\n\n` +
+  `אם יש לך שאלה על המידה, הבד או ההחזרות, אשמח לעזור כאן בוואטסאפ 🙂 ויש 30 יום ניסיון, אז אפשר להחליף או להחזיר אם זה לא מתאים.\n\n` +
+  `להשלמת ההזמנה:\n${url}\n\n` +
+  `אני כאן לכל שאלה 🙏`;
+
+// סדר עדיפויות: הנוסח עם הדחיפות, ואם התבנית עדיין לא מאושרת ב-Meta (שגיאה 404) —
+// התבנית הרגילה המאושרת. כך ברגע שהתבנית החדשה מאושרת הבוט עובר אליה לבד.
+const TEMPLATES = [
+  { name: process.env.ABANDONED_CART_TEMPLATE || "bra_cart_urgent_v2", render: renderUrgent },
+  { name: "bra_cart_recovery", render: renderPlain },
+];
+
+export const FALLBACK_NAME = "יקרה";
+
+/** שולחת את תזכורת העגלה, ומזריעה את השיחה. מחזירה {template, text}. */
+export async function sendCartReminder(phone, name, url) {
+  let lastErr;
+  for (const t of TEMPLATES) {
+    try {
+      await sendWhatsAppTemplate(phone, t.name, [name, url]);
+      const text = t.render(name, url);
+      saveTurn(
+        phone,
+        "[הודעת מערכת: הלקוחה נטשה עגלה באתר. נשלחה לה הודעת תזכורת בוואטסאפ עם קישור להשלמת ההזמנה.]",
+        text
+      );
+      logToSheet({ name, phone, userMessage: "[תזכורת עגלה נטושה]", botReply: text });
+      return { template: t.name, text };
+    } catch (err) {
+      lastErr = err;
+      if (err.status !== 404) throw err; // fallback רק כשהתבנית לא קיימת / לא מאושרת
+    }
+  }
+  throw lastErr;
 }
 
 // ---------------------------------------------------------------------------
@@ -232,8 +267,7 @@ async function scanOnce() {
       continue;
     }
 
-    const name = firstName || "חבר/ה";
-    const text = renderTemplateText(name, node.abandonedCheckoutUrl);
+    const name = firstName || FALLBACK_NAME;
 
     if (DRY_RUN) {
       // ללא מספר מלא בלוג — פרטיות
@@ -245,14 +279,8 @@ async function scanOnce() {
     sentPhones.set(phone, now);
     persistState();
     try {
-      await sendWhatsAppTemplate(phone, TEMPLATE_NAME, [name, node.abandonedCheckoutUrl]);
-      saveTurn(
-        phone,
-        "[הודעת מערכת: הלקוח השאיר עגלה באתר ולא השלים הזמנה. נשלחה לו תזכורת בוואטסאפ.]",
-        text
-      );
-      console.log(`🛒 נשלחה תזכורת עגלה נטושה ל-***${phone.slice(-4)}`);
-      logToSheet({ name, phone, userMessage: "[תזכורת עגלה נטושה]", botReply: text });
+      const { template } = await sendCartReminder(phone, name, node.abandonedCheckoutUrl);
+      console.log(`🛒 נשלחה תזכורת עגלה נטושה ל-***${phone.slice(-4)} (${template})`);
     } catch (err) {
       console.error(`❌ כשל בשליחת תזכורת עגלה ל-***${phone.slice(-4)}:`, err.message);
     }
@@ -268,7 +296,7 @@ export function startAbandonedCartRecovery() {
   }
   console.log(
     `🛒 שחזור עגלות נטושות פעיל — ${DRY_RUN ? "מצב בדיקה (DRY RUN, לא שולח)" : "מצב חי"}, ` +
-      `שליחה אחרי ${DELAY_MIN} דק', תבנית: ${TEMPLATE_NAME}`
+      `שליחה אחרי ${DELAY_MIN} דק', תבנית: ${TEMPLATES[0].name}`
   );
 
   let running = false;
