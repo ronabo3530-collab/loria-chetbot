@@ -94,7 +94,7 @@ function requireAdmin(req, res, next) {
 
 app.get("/admin/backlog/preview", requireAdmin, async (_req, res) => {
   try {
-    res.json(await previewBacklog());
+    res.json(await previewBacklog({ maxAgeDays: Number(_req.query.days) || undefined }));
   } catch (err) {
     console.error("שגיאה בתצוגה מקדימה:", err);
     res.status(500).json({ error: err.message });
@@ -113,9 +113,10 @@ app.post("/admin/backlog/test", requireAdmin, async (req, res) => {
 });
 
 // מפעיל עכשיו את השליחה החד-פעמית לעגלות מהשבוע האחרון (רץ ברקע, תוצאה בלוג).
-app.post("/admin/backlog/run", requireAdmin, (_req, res) => {
-  res.json({ started: true });
-  runBacklog({ live: true }).catch((err) => console.error("שגיאה בשליחה החד-פעמית:", err.message));
+app.post("/admin/backlog/run", requireAdmin, (req, res) => {
+  const maxAgeDays = Number(req.query.days) || undefined; // ברירת מחדל: 7 ימים
+  res.json({ started: true, maxAgeDays: maxAgeDays ?? 7 });
+  runBacklog({ live: true, maxAgeDays }).catch((err) => console.error("שגיאה בשליחה החד-פעמית:", err.message));
 });
 
 // בדיקת בריאות פשוטה (שימושי לענן ולבדיקה בדפדפן).

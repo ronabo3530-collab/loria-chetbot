@@ -45,7 +45,7 @@ const CHECKOUTS_QUERY = `query($after: String) {
   }
 }`;
 
-export async function buildRecipients() {
+export async function buildRecipients({ maxAgeDays = MAX_AGE_DAYS } = {}) {
   const nodes = [];
   let after = null;
   do {
@@ -61,7 +61,7 @@ export async function buildRecipients() {
 
   for (const node of nodes) {
     const ageMin = (now - new Date(node.createdAt).getTime()) / 60000;
-    if (ageMin > MAX_AGE_DAYS * 24 * 60) {
+    if (ageMin > maxAgeDays * 24 * 60) {
       stats.tooOld++;
       continue;
     }
@@ -113,8 +113,8 @@ const mask = (phone) => `***${phone.slice(-4)}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** מצב בדיקה: בונה את הרשימה ומחזיר סיכום (ללא מספרים מלאים), בלי לשלוח. */
-export async function previewBacklog() {
-  const { recipients, stats } = await buildRecipients();
+export async function previewBacklog(opts) {
+  const { recipients, stats } = await buildRecipients(opts);
   return {
     stats,
     willSend: recipients.length,
@@ -132,18 +132,18 @@ export async function sendBacklogTest(phone, rawName) {
 let backlogDone = false;
 let backlogRunning = false;
 
-export async function runBacklog({ live }) {
+export async function runBacklog({ live, maxAgeDays }) {
   if (backlogRunning) return console.log("📣 שליחה חד-פעמית כבר רצה — מדלג");
   backlogRunning = true;
   try {
-    await runBacklogInner({ live });
+    await runBacklogInner({ live, maxAgeDays });
   } finally {
     backlogRunning = false;
   }
 }
 
-async function runBacklogInner({ live }) {
-  const { recipients, stats } = await buildRecipients();
+async function runBacklogInner({ live, maxAgeDays }) {
+  const { recipients, stats } = await buildRecipients({ maxAgeDays });
   console.log(`📣 שליחה חד-פעמית: ${recipients.length} נמענות`, JSON.stringify(stats));
   let sent = 0;
   for (const r of recipients) {
