@@ -30,7 +30,7 @@ const DRY_RUN = String(process.env.ABANDONED_CART_DRY_RUN ?? "true").toLowerCase
 const STATE_FILE = process.env.ABANDONED_CART_STATE_FILE || "./abandoned-state.json";
 
 // נוסח התבנית כפי שהוגשה ל-Meta — משמש להזרעת היסטוריית השיחה. חייב להתאים לתבנית המאושרת.
-function renderTemplateText(firstName, url) {
+export function renderTemplateText(firstName, url) {
   return (
     `היי ${firstName}, זה נועה מ-MILOA 👋\n\n` +
     `שמתי לב שהשארת בעגלה את חזיית miloa ולא סיימת את ההזמנה.\n\n` +
@@ -108,6 +108,7 @@ const CHECKOUTS_QUERY = `{
   abandonedCheckouts(first: 50, reverse: true) {
     edges { node {
       id createdAt completedAt abandonedCheckoutUrl
+      lineItems(first: 10) { edges { node { title } } }
       customer { firstName email phone }
       billingAddress { firstName phone }
       shippingAddress { firstName phone }
@@ -195,6 +196,12 @@ export function pickContact(node) {
   return { phone, firstName, email: node.customer?.email ?? null };
 }
 
+// שולחים רק לעגלות שיש בהן את החזייה (בחנות יש גם מוצר ישן של סד נגד נחירות).
+const PRODUCT_KEYWORD = process.env.CART_PRODUCT_KEYWORD || "חזיית";
+export function hasProduct(node) {
+  return (node.lineItems?.edges ?? []).some((e) => (e.node?.title || "").includes(PRODUCT_KEYWORD));
+}
+
 // ---------------------------------------------------------------------------
 //  הסריקה
 // ---------------------------------------------------------------------------
@@ -204,7 +211,7 @@ async function scanOnce() {
   let candidates = 0;
 
   for (const { node } of data.abandonedCheckouts.edges) {
-    if (node.completedAt || sentCheckouts.has(node.id) || !node.abandonedCheckoutUrl) continue;
+    if (node.completedAt || sentCheckouts.has(node.id) || !node.abandonedCheckoutUrl || !hasProduct(node)) continue;
 
     const ageMin = (now - new Date(node.createdAt).getTime()) / 60000;
     if (ageMin < DELAY_MIN || ageMin >= MAX_AGE_MIN) continue;
